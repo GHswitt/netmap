@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>netmap</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>netmap</h1>
+  <div id="routers" class="chips"></div>
+  <span id="updated" class="muted"></span>
+  <button id="wan" class="chip" type="button" hidden></button>
+  <button id="certs" class="chip" type="button" hidden></button>
+  <div class="filters">
+    <input id="q" type="search" placeholder="Search name, IP, MAC, vendor…" autocomplete="off">
+    <select id="maxAge" title="Hide offline devices not seen for longer than">
+      <option value="1">Offline ≤ 1 day</option>
+      <option value="7">Offline ≤ 7 days</option>
+      <option value="30">Offline ≤ 30 days</option>
+      <option value="all">All offline</option>
+    </select>
+    <button id="themeBtn" class="theme-btn" type="button"></button>
+  </div>
+</header>
+<main>
+  <section id="mapwrap">
+    <div id="mapbar">
+      <div id="tools">
+        <button id="fit" type="button">Fit</button>
+        <button id="expand" type="button">Expand all</button>
+        <button id="collapse" type="button">Collapse</button>
+        <button id="toggleList" type="button">Hide list</button>
+        <button id="trafficBtn" type="button" aria-pressed="false" title="Color the map by current traffic">Traffic</button>
+      </div>
+      <div id="legend" aria-label="Legend"></div>
+    </div>
+    <div id="mapbox">
+      <div id="map"></div>
+      <aside id="details" hidden></aside>
+    </div>
+  </section>
+  <div id="splitter" role="separator" aria-orientation="horizontal" aria-label="Resize device list"
+       title="Drag to resize · double-click to reset" tabindex="0"></div>
+  <section id="list">
+    <table>
+      <thead>
+        <tr>
+          <th data-key="status">Status</th>
+          <th data-key="name">Name</th>
+          <th data-key="ip">IP</th>
+          <th data-key="mac">MAC</th>
+          <th data-key="location">Location</th>
+          <th data-key="signal">Signal</th>
+          <th data-key="traffic">Traffic</th>
+          <th data-key="last_seen">Last seen</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <p id="count" class="muted"></p>
+  </section>
+</main>
+<script src="vendor/cytoscape.min.js"></script>
+<script src="charts.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

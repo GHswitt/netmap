@@ -1,0 +1,2 @@
+librouteros>=4.2,<5
+PyYAML>=6

@@ -1,0 +1,94 @@
+# Copy to config.yaml (keep it out of version control: it holds passwords) and fill in.
+
+root: 192.168.88.1        # gateway; top of the tree (default: first router)
+poll_interval: 10         # seconds
+offline_after: 60         # grace before a device that left the tables counts as offline
+forget_private_after_days: 30   # forget random-MAC and guest devices not seen this long (0 = never);
+                               # a DHCP lease comment or static lease keeps them
+guest_pattern: guest      # interfaces/bridges/DHCP servers whose name contains this are "guest"
+data_dir: data            # SQLite DB, OUI list, web certificate (relative to this file)
+
+server:
+  bind: 192.168.88.10                      # the address of the machine running netmap
+  port: 8090
+  tls: true                                # self-signed cert, created on first start
+  cert_names: [server.lan, 192.168.88.10]  # SANs for that cert
+  username: admin
+  password: ""                             # empty = no login (not recommended)
+
+# Optional: your own CA. Offered for download at /ca.crt, and used to verify the routers' API
+# certificates (instead of fingerprints) and the services in cert_watch. netmap checks those every
+# 6 h and shows the result in the header chip "Certificates".
+# ca_file: ca/root.crt     # relative to this file
+# cert_warn_days: 30
+# cert_watch:
+#   netmap: 192.168.88.10:8090
+#   router WebFig: 192.168.88.1:443
+
+# Map colors (hex, rgb()/hsl() or CSS names). Leave out any to keep the default.
+colors:
+  router: "#3b82f6"   # router card border and icon
+  port: "#14b8a6"     # Ethernet port cards
+  ap: "#8b5cf6"       # access point (SSID) cards
+  wired: "#22c55e"    # wired devices
+  wifi: "#f97316"     # wireless devices
+  guest: "#eab308"    # guest network devices (border)
+  new: "#ec4899"      # devices first seen < 24 h (border)
+  uplink: "#3b82f6"   # lines between routers
+
+# Traffic heat map. Heat is relative: a device's (or port's) rate compared with the busiest one
+# recently (decaying, never below floor_mbps). The WAN port instead shows % of the line speed.
+traffic:
+  floor_mbps: 1
+  half_life_s: 120
+  bands:              # heat % -> color; below the first band: no color
+    5: "#22c55e"
+    25: "#f59e0b"
+    60: "#ef4444"
+  wan: {router: router, interface: ether1, down_mbps: 100, up_mbps: 40}
+  # link_limits:        # known bottlenecks: no speed warning while the port reaches this
+  #  - {router: router, interface: ether4, mbps: 100, note: "via 100 Mbit powerline adapters"}
+
+# Device tags: a device gets a tag when any `match` rule matches and no `exclude` rule does.
+# Fields in one rule must all match. name/hostname/vendor/router/interface/ssid are
+# case-insensitive regexes; mac takes a list with * wildcards; ip a list; subnet CIDR(s);
+# kind is wired or wifi. Tags show in the legend (as filters) in this order.
+tags:
+  IoT:
+    color: "#06b6d4"
+    match:
+      - vendor: "Espressif|Tuya|Shelly"
+      - name: "^IoT:"
+      - subnet: 192.168.89.0/24
+  Phone:
+    color: "#ef4444"
+    match:
+      - vendor: "Apple|Samsung|Google|Huawei|Honor|Xiaomi|OnePlus|OPPO|vivo|realme|Motorola|HMD|Nokia|Sony|Fairphone|Nothing"
+        kind: wifi
+      - name: "iphone|ipad|pixel|galaxy|^sm-|android|huawei_|honor|xiaomi|redmi|oneplus|moto|nokia"
+
+# Device names that override the routers' names (lease comment, DNS, host name). A name set in
+# the web UI (pencil in the device details) wins over these.
+# names:
+#   "02:00:00:00:00:01": Garden socket
+
+# Read-only RouterOS user, API-SSL only (see README, "Router setup"):
+#   /user group add name=netmap policy=read,api
+#   /user add name=netmap group=netmap password=... address=192.168.88.10/32
+#   /ip service set api-ssl certificate=... address=192.168.88.10/32 disabled=no
+routers:
+  - host: 192.168.88.1     # IPs: no dependency on DNS
+    name: router           # display name; defaults to the first label of host
+    port: 8729
+    username: netmap
+    password: ""
+    fingerprint: ""        # SHA-256 of the router's API-SSL certificate; can be left out when
+                           # ca_file is set and the router's certificate comes from that CA
+  # - host: 192.168.88.2
+  #   name: ap1
+  #   password: ""
+  #   fingerprint: ""
+
+# Optional: override the inferred router tree.
+# links:
+#   - {parent: 192.168.88.1, parent_port: ether4, child: 192.168.88.2, child_port: ether1}

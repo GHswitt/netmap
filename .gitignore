@@ -1,0 +1,7 @@
+config.yaml
+data/
+dumps/
+*.dump.json
+__pycache__/
+venv/
+.venv/

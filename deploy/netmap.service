@@ -1,0 +1,13 @@
+[Unit]
+Description=netmap - live MikroTik network map
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/netmap
+ExecStart=%h/netmap/run.sh
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=default.target
