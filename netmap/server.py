@@ -21,7 +21,7 @@ from .config import MAC
 from .history import RANGES, History
 from .collector import RouterClient
 from .oui import Oui, is_private
-from .store import Store, forgettable
+from .store import Store, forgettable, held_by
 from .traffic import Traffic
 
 log = logging.getLogger(__name__)
@@ -85,6 +85,10 @@ class Poller:
                 prefix = d["vendor"] or ("private" if d["private"] else "unknown")
                 d["name"], d["name_source"] = f"{prefix} {d['mac'][-8:]}", "vendor + MAC"
         self.apply_names(snap)
+        for d in snap["devices"]:
+            d["held_by"] = held_by(d)
+            d["forgettable"] = not d["online"] and not d["held_by"]
+            d.pop("stored_only", None)
         self.traffic.annotate(snap, raws, time.time())
         tags.apply(self.cfg["tags"], snap["devices"],
                    {g["id"]: g for g in snap["groups"]}, {r["id"]: r for r in snap["routers"]})
@@ -113,6 +117,23 @@ class Poller:
                 d["name"], d["name_source"] = d["auto_name"], d["auto_name_source"]
             self.snapshot = json.dumps(self.snap).encode()
             return d["name"], d["name_source"]
+
+    def forget(self, mac):
+        """Delete an offline device that no router table knows any more: the stored device, a name
+        given in netmap and its history. Returns None, or why it can't be forgotten."""
+        with self.lock:
+            d = next((x for x in (self.snap or {}).get("devices", []) if x["mac"] == mac), None)
+            if d is None:
+                return "unknown device"
+            if not d.get("forgettable"):
+                return "still known to the routers: " + ", ".join(d.get("held_by") or ["online"])
+            self.store.forget([mac])
+            self.store.set_name(mac, "")
+            self.history.forget(["d:" + mac])
+            self.snap["devices"] = [x for x in self.snap["devices"] if x["mac"] != mac]
+            self.snapshot = json.dumps(self.snap).encode()
+        log.info("forgot %s (%s)", d["name"], mac)
+        return None
 
     def apply_names(self, snap):
         """Names given in netmap win: web UI first, then names: in config.yaml. The automatic name
@@ -203,10 +224,11 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             return
         # A custom header can't be sent cross-site without a CORS preflight (which netmap never
-        # allows), so another website can't make the logged-in browser rename devices.
+        # allows), so another website can't make the logged-in browser rename or forget devices.
         if self.headers.get("X-Netmap") != "1":
             return self.reply(403, b'{"error": "missing X-Netmap header"}', "application/json")
-        if self.path.split("?")[0] != "/api/name":
+        route = self.path.split("?")[0]
+        if route not in ("/api/name", "/api/forget"):
             return self.reply(404, b'{"error": "not found"}', "application/json")
         try:
             length = int(self.headers.get("Content-Length", 0))
@@ -219,6 +241,11 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("bad mac")
         except (ValueError, json.JSONDecodeError) as e:
             return self.reply(400, json.dumps({"error": str(e)}).encode(), "application/json")
+        if route == "/api/forget":
+            why = self.server.poller.forget(mac)
+            if why:
+                return self.reply(409, json.dumps({"error": why}).encode(), "application/json")
+            return self.reply(200, json.dumps({"mac": mac, "forgotten": True}).encode(), "application/json")
         final, source = self.server.poller.rename(mac, name)
         log.info("name for %s %s", mac, f"set to {name!r}" if name else "cleared")
         return self.reply(200, json.dumps({"mac": mac, "name": final, "name_source": source}).encode(),

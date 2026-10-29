@@ -39,6 +39,17 @@ def forgettable(d, cutoff):
             and (is_private(d["mac"]) or d.get("guest")))
 
 
+def held_by(d):
+    """What on the routers still knows an offline device; [] = only netmap's memory, so it can be
+    forgotten for good."""
+    if d["online"] or d.get("stored_only"):
+        return []
+    lease = d.get("lease")
+    if lease:
+        return ["static DHCP lease" if lease.get("dynamic") is False else "DHCP lease (expires by itself)"]
+    return ["ARP entry on a router (expires by itself)"]
+
+
 class Store:
     def __init__(self, path):
         self.db = sqlite3.connect(path, check_same_thread=False)
@@ -67,6 +78,7 @@ class Store:
                     d = by_mac[mac] = blank_device(mac)
                     d["name"], d["name_source"] = row[5], "last known" if row[5] else None
                     d["guest"] = bool(row[6])
+                    d["stored_only"] = True   # no router table knows it any more
                     snap["devices"].append(d)
 
             for d in snap["devices"]:

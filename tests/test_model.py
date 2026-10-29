@@ -531,6 +531,45 @@ class NamesTest(unittest.TestCase):
             self.assertEqual(published()[LAPTOP]["name"], auto)
             p.store.db.close(); p.history.db.close()
 
+    def test_held_by(self):
+        from netmap.store import held_by
+        base = {"mac": "00:11:22:33:44:55", "online": False, "lease": None}
+        self.assertEqual(held_by({**base, "online": True}), [])
+        self.assertEqual(held_by({**base, "stored_only": True}), [])
+        self.assertEqual(held_by({**base, "lease": {"dynamic": False}}), ["static DHCP lease"])
+        self.assertEqual(held_by({**base, "lease": {"dynamic": True}}), ["DHCP lease (expires by itself)"])
+        self.assertEqual(held_by(base), ["ARP entry on a router (expires by itself)"])
+
+    def test_forget_device(self):
+        import json
+        import tempfile
+        import time
+        from pathlib import Path
+        from netmap.server import Poller
+        gone = "00:99:99:99:99:01"   # in netmap's memory only, no router table knows it
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+            cfg = {**CFG, "data_dir": Path(tmp), "names": {}, "offline_after": 60, "forget_private_after_days": 0,
+                   "poll_interval": 10, "colors": {}, "tags": [],
+                   "traffic": {"floor_mbps": 1, "half_life_s": 120, "bands": [], "wan": None}}
+            p = Poller(cfg, replay=RAW)
+            old = time.time() - 86400
+            p.store.db.execute("INSERT INTO devices (mac, first_seen, last_seen, name) VALUES (?, ?, ?, 'Old TV')",
+                               (gone, old, old))
+            p.store.set_name(gone, "Old TV")
+            p.history.db.execute("INSERT INTO minute (series, t) VALUES (?, ?)", ("d:" + gone, int(old)))
+            p.poll_once()
+            published = lambda: {d["mac"]: d for d in json.loads(p.snapshot)["devices"]}
+            self.assertEqual((published()[gone]["forgettable"], published()[gone]["held_by"]), (True, []))
+            self.assertFalse(published()[LAPTOP]["forgettable"])
+            self.assertIn("still known", p.forget(LAPTOP))
+            self.assertIsNone(p.forget(gone))
+            self.assertNotIn(gone, published())                         # before any new poll
+            self.assertNotIn(gone, p.store.names())
+            self.assertEqual(p.history.db.execute("SELECT count(*) FROM minute WHERE series = ?", ("d:" + gone,)).fetchone()[0], 0)
+            p.poll_once()
+            self.assertNotIn(gone, published())
+            p.store.db.close(); p.history.db.close()
+
     def test_named_devices_are_not_forgotten(self):
         from netmap.store import forgettable
         d = {"mac": "7E:00:00:00:00:01", "online": False, "last_seen": 0, "guest": True, "lease": None}

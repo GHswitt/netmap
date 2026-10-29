@@ -578,7 +578,10 @@ function renderDetails() {
         ['Type', l.dynamic ? 'dynamic' : 'static'], ['Address', l.address], ['Comment', l.comment],
         ['Expires in', l['expires-after']], ['Last seen', l['last-seen']]]) : '') +
       (d.lldp ? '<h3>Neighbor discovery</h3>' + dl(Object.entries(d.lldp)) : '') +
-      '<h3>History</h3>' + dl([['First seen', when(d.first_seen)], ['Last seen', d.online ? 'now' : when(d.last_seen)]]);
+      '<h3>History</h3>' + dl([['First seen', when(d.first_seen)], ['Last seen', d.online ? 'now' : when(d.last_seen)]]) +
+      (d.online ? '' : d.forgettable
+        ? '<p><button class="forget" type="button">Forget device…</button></p>'
+        : `<p class="muted">Can't be forgotten while the routers still know it: ${esc((d.held_by || []).join(', '))}.</p>`);
   } else if (sel.type === 'group') {
     const g = groups[sel.id];
     if (!g) { box.hidden = true; return; }
@@ -628,6 +631,8 @@ function renderDetails() {
   box.querySelector('.close').onclick = () => select(null);
   const edit = box.querySelector('.edit-name');
   if (edit) edit.onclick = () => startRename(box, sel.id);
+  const forget = box.querySelector('.forget');
+  if (forget) forget.onclick = () => forgetDevice(sel.id);
   const toggle = box.querySelector('#toggle');
   if (toggle) toggle.onclick = () => {
     const g = groups[sel.id];
@@ -738,6 +743,35 @@ function applyPendingNames() {
     const d = state.snap?.devices.find((x) => x.mac === mac);
     if (!d || Date.now() > p.until || (d.name === p.name && d.name_source === p.source)) delete pendingNames[mac];
     else Object.assign(d, { name: p.name, name_source: p.source });
+  }
+}
+
+const pendingForgets = {};   // mac -> until: forgotten, maybe still in a snapshot on its way
+function applyPendingForgets() {
+  for (const [mac, until] of Object.entries(pendingForgets)) {
+    if (Date.now() > until || !state.snap?.devices.some((x) => x.mac === mac)) delete pendingForgets[mac];
+    else state.snap.devices = state.snap.devices.filter((x) => x.mac !== mac);
+  }
+}
+
+async function forgetDevice(mac) {
+  const d = state.snap.devices.find((x) => x.mac === mac);
+  if (!d || !confirm(`Forget "${d.name}"?
+
+Deletes the stored device, a name given in netmap and its ` +
+    'traffic and signal history. If it shows up again, it returns as a new device.')) return;
+  try {
+    const res = await fetch('api/forget', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Netmap': '1' },
+      body: JSON.stringify({ mac }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    pendingForgets[mac] = Date.now() + 30000;
+    applyPendingForgets();
+    select(null);
+  } catch (err) {
+    alert(`Not forgotten: ${err.message}`);
   }
 }
 
@@ -860,6 +894,7 @@ async function refresh() {
     if (!snap.routers) throw new Error('no data yet');
     state.snap = snap;
     applyPendingNames();
+    applyPendingForgets();
     applyColors(snap.colors);
     applyBands(snap.traffic?.bands);
     render();

@@ -87,6 +87,8 @@ From a real network, with names, MACs and IPs replaced (see [tools/demo_proxy.py
   neighbor-discovery data, first/last seen.
   Click the **name, an IP, the MAC, the host name or the SSID** to copy it ("✓ copied"; also
   Tab + Enter, and inside an iframe embed). ✎ next to the name renames the device.
+  An offline device that no router knows any more has **Forget device…** (see *Forgetting*);
+  otherwise the panel says what still holds it (e.g. a static DHCP lease).
 - Port: link speed, what the port supports, a warning when a router-to-router link negotiated
   below what both ends support (unless explained by `traffic.link_limits`).
 - **Trends**: traffic (↓/↑ with a band for the peaks) and, for wifi devices, signal (colored by the
@@ -115,8 +117,9 @@ it gets, and protect it from being forgotten (`forget_private_after_days`), as d
 a static lease. RouterOS only allows a lease comment on a static lease. A static DNS name (4) follows
 the IP, so it only fits devices with a fixed IP.
 
-Renaming in the UI is the only thing netmap's UI writes. The `api/name` endpoint needs the login and
-an `X-Netmap: 1` header, so other websites can't trigger it through a logged-in browser.
+Renaming and forgetting devices are the only things netmap's UI writes (to its own database). The
+`api/name` and `api/forget` endpoints need the login and an `X-Netmap: 1` header, so other websites
+can't trigger them through a logged-in browser.
 
 **Routers**: `name` in `config.yaml` (default: the first label of `host`). The RouterOS identity is
 shown in the router's details only, and routers are recognized by MAC, so renaming the identity
@@ -177,7 +180,11 @@ peak traffic, average and worst signal, and the AP, stored once a minute in `dat
 
 **Forgetting.** Devices with a random (locally administered) MAC or on the guest network are deleted,
 history included, after `forget_private_after_days` offline, unless they have a DHCP lease comment or
-a static lease. Devices with a manufacturer MAC are kept forever.
+a static lease. Devices with a manufacturer MAC are kept until you forget them: *Forget device…* in
+the details deletes the stored device, a name given in netmap and its history. It's offered only
+once no router table knows the device any more; a static lease has to be removed on the router
+first (`/ip dhcp-server lease remove [find mac-address=…]`), a dynamic lease or ARP entry expires
+by itself. A forgotten device that shows up again returns as *new*.
 
 **Events.** `Poller.listeners` receive `new_device`, `online` and `offline` events (currently
 logged); integrations (e.g. MQTT) can hook in here.
@@ -297,6 +304,7 @@ websites, even if its key leaks.
 | `GET api/history?id=d:<MAC>&range=24h` | history of a device; `id=g:<router>\|<interface>` for a port/AP; ranges `1h`, `24h`, `7d`, `30d`, `1y` |
 | `GET ca.crt` | the CA certificate from `ca_file`, for installing on devices |
 | `POST api/name` | `{"mac": "...", "name": "..."}` (empty name clears it); header `X-Netmap: 1` required |
+| `POST api/forget` | `{"mac": "..."}`: forget an offline device no router knows any more (409 with the reason otherwise); header `X-Netmap: 1` required |
 
 ## Troubleshooting
 
