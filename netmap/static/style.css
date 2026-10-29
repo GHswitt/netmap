@@ -91,6 +91,7 @@ h1 { margin: 0; font-size: 17px; font-weight: 650; }
   background: var(--surface);
   color: var(--text);
 }
+.chip[hidden] { display: none; }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--online); flex: none; }
 .dot.off { background: var(--offline); }
 .dot.err { background: var(--danger); }

@@ -704,7 +704,7 @@ function drawCharts(el, data) {
 // Large view of the history charts, on top of everything; same data, cache and range as the panel.
 function openChartModal(panelCharts) {
   closeChartModal();
-  const title = $('#details h2')?.textContent || '';
+  const title = ($('#details h2 .copy') || $('#details h2'))?.textContent || '';
   const modal = document.createElement('div');
   modal.id = 'chartModal';
   modal.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)} history">` +

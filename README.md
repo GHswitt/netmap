@@ -13,7 +13,10 @@ single-page web UI (Cytoscape.js, bundled), e.g. on a Raspberry Pi or any Linux 
 - API-SSL enabled on every router (see [Router setup](#router-setup))
 - Python 3 (tested with 3.13 and 3.14) and the `openssl` command for the self-signed web certificate
 
+![netmap: three routers with their ports, access points and devices, and the device list](docs/screenshots/overview.png)
+
 ## Contents
+- [Screenshots](#screenshots)
 - [What you see](#what-you-see)
 - [Where the names come from](#where-the-names-come-from)
 - [How netmap works](#how-netmap-works)
@@ -25,6 +28,17 @@ single-page web UI (Cytoscape.js, bundled), e.g. on a Raspberry Pi or any Linux 
 - [Troubleshooting](#troubleshooting)
 - [Ideas](#ideas)
 - [License](#license)
+
+## Screenshots
+
+From a real network, with names, MACs and IPs replaced (see [tools/demo_proxy.py](tools/demo_proxy.py)).
+
+| | |
+|---|---|
+| [![Traffic heat on map and list](docs/screenshots/traffic.png)](docs/screenshots/traffic.png) **Traffic**: heat on devices, ports and links | [![Dark theme](docs/screenshots/overview-dark.png)](docs/screenshots/overview-dark.png) **Dark theme** |
+| [![Legend filter: IoT only](docs/screenshots/filter-iot.png)](docs/screenshots/filter-iot.png) **Filter**: only IoT devices (double-click in the legend) | [![Device details with traffic and signal trends](docs/screenshots/device.png)](docs/screenshots/device.png) **Device details** with traffic and signal history; the signal is colored by AP, so roaming shows |
+| [![Enlarged trend charts](docs/screenshots/chart.png)](docs/screenshots/chart.png) **Trends**, enlarged | [![Port details with link speed](docs/screenshots/port.png)](docs/screenshots/port.png) **Port details**: link speed, known bottleneck, traffic |
+| [![Device list sorted by traffic](docs/screenshots/list.png)](docs/screenshots/list.png) **List** sorted by traffic | |
 
 ## What you see
 
@@ -274,6 +288,8 @@ websites, even if its key leaks.
 | `netmap/server.py` | poll loop, HTTPS server, basic auth, API |
 | `netmap/static/` | web UI (`app.js` map/table/legend/details, `charts.js` history charts) |
 | `deploy.sh`, `run.sh`, `deploy/netmap.service` | deployment as a systemd user service |
+| `tools/demo_proxy.py` | anonymizing proxy in front of a running netmap: replaces names, MACs, IPs and SSIDs in every API response (mapping file, leak check), for screenshots and demos |
+| `tools/screenshots.py` | takes the README screenshots with a headless Chromium/Edge (needs `pip install websockets`) |
 
 | Endpoint | Returns |
 |---|---|
